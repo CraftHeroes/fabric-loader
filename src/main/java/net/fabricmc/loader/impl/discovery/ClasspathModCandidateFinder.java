@@ -30,27 +30,19 @@ import net.fabricmc.loader.impl.util.log.LogCategory;
 public class ClasspathModCandidateFinder implements ModCandidateFinder {
 	@Override
 	public void findCandidates(ModCandidateConsumer out) {
-		if (FabricLauncherBase.getLauncher().isDevelopment()) {
-			// Search for URLs which point to 'fabric.mod.json' entries, to be considered as mods.
-			try {
-				Enumeration<URL> mods = FabricLauncherBase.getLauncher().getTargetClassLoader().getResources("fabric.mod.json");
+		// Search for URLs which point to 'fabric.mod.json' entries, to be considered as mods.
+		try {
+			Enumeration<URL> mods = FabricLauncherBase.getLauncher().getTargetClassLoader().getResources("fabric.mod.json");
 
-				while (mods.hasMoreElements()) {
-					try {
-						out.accept(UrlUtil.getSourcePath("fabric.mod.json", mods.nextElement()), false);
-					} catch (UrlConversionException e) {
-						Log.debug(LogCategory.DISCOVERY, "Error determining location for fabric.mod.json", e);
-					}
+			while (mods.hasMoreElements()) {
+				try {
+					out.accept(UrlUtil.getSourcePath("fabric.mod.json", mods.nextElement()), false);
+				} catch (UrlConversionException e) {
+					Log.debug(LogCategory.DISCOVERY, "Error determining location for fabric.mod.json", e);
 				}
-			} catch (IOException e) {
-				throw new RuntimeException(e);
 			}
-		} else { // production, add loader as a mod
-			try {
-				out.accept(getFabricLoaderPath(), false);
-			} catch (Throwable t) {
-				Log.debug(LogCategory.DISCOVERY, "Could not retrieve launcher code source!", t);
-			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 	}
 

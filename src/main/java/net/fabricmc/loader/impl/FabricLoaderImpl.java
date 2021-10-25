@@ -19,6 +19,8 @@ package net.fabricmc.loader.impl;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,6 +36,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.google.gson.stream.JsonReader;
 import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.accesswidener.AccessWidener;
@@ -62,6 +67,7 @@ import net.fabricmc.loader.impl.metadata.DependencyOverrides;
 import net.fabricmc.loader.impl.metadata.EntrypointMetadata;
 import net.fabricmc.loader.impl.metadata.LoaderModMetadata;
 import net.fabricmc.loader.impl.util.DefaultLanguageAdapter;
+import net.fabricmc.loader.impl.util.InvalidConfigurationException;
 import net.fabricmc.loader.impl.util.SystemProperties;
 import net.fabricmc.loader.impl.util.log.Log;
 import net.fabricmc.loader.impl.util.log.LogCategory;
@@ -92,6 +98,8 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	private boolean frozen = false;
 
 	private Object gameInstance;
+
+	private FabricLoaderConfig configuration;
 
 	private MappingResolver mappingResolver;
 	private GameProvider provider;
@@ -126,7 +134,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 
 	private void setGameDir(Path gameDir) {
 		this.gameDir = gameDir;
-		this.configDir = gameDir.resolve("config");
+		this.configDir = gameDir.resolve(getConfiguration().getConfigDir());
 	}
 
 	@Override
@@ -151,6 +159,10 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	@Deprecated
 	public File getGameDirectory() {
 		return getGameDir().toFile();
+	}
+
+	public FabricLoaderConfig getConfiguration() {
+		return configuration;
 	}
 
 	/**
@@ -180,9 +192,20 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 		if (frozen) throw new IllegalStateException("Frozen - cannot load additional mods!");
 
 		try {
+			loadConfiguration();
 			setup();
-		} catch (ModResolutionException exception) {
+		} catch (ModResolutionException | InvalidConfigurationException exception) {
 			FabricGuiEntry.displayCriticalError(exception, true);
+		}
+	}
+
+	public void loadConfiguration() throws InvalidConfigurationException {
+		try {
+			InputStream in = getClass().getClassLoader().getResourceAsStream(FabricLoaderConfig.CONFIG_FILE);
+			JsonReader reader = new JsonReader(new InputStreamReader(in));
+			configuration = new Gson().fromJson(reader, FabricLoaderConfig.class);
+		} catch (JsonParseException exc) {
+			throw new InvalidConfigurationException(exc);
 		}
 	}
 
