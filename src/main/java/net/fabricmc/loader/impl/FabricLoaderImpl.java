@@ -59,6 +59,7 @@ import net.fabricmc.loader.impl.discovery.ModDiscoverer;
 import net.fabricmc.loader.impl.discovery.ModResolutionException;
 import net.fabricmc.loader.impl.discovery.ModResolver;
 import net.fabricmc.loader.impl.discovery.RuntimeModRemapper;
+import net.fabricmc.loader.impl.discovery.ShadedModCandidateFinder;
 import net.fabricmc.loader.impl.entrypoint.EntrypointStorage;
 import net.fabricmc.loader.impl.game.GameProvider;
 import net.fabricmc.loader.impl.gui.FabricGuiEntry;
@@ -197,6 +198,18 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 		return System.getProperties().containsKey("mutableConfigs");
 	}
 
+	public Path getJarPath() {
+		if (jarPath == null) {
+			try {
+				jarPath = Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
+			} catch (URISyntaxException e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		return jarPath;
+	}
+
 	@Override
 	@Deprecated
 	public File getConfigDirectory() {
@@ -234,6 +247,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 
 		ModDiscoverer discoverer = new ModDiscoverer();
 		discoverer.addCandidateFinder(new ClasspathModCandidateFinder());
+		discoverer.addCandidateFinder(new ShadedModCandidateFinder());
 		discoverer.addCandidateFinder(new DirectoryModCandidateFinder(gameDir.resolve("mods"), remapRegularMods));
 		discoverer.addCandidateFinder(new ArgumentModCandidateFinder(remapRegularMods));
 
