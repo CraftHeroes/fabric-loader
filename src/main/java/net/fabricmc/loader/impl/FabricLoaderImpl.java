@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -100,6 +101,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	private Object gameInstance;
 
 	private FabricLoaderConfig configuration;
+	private Path jarPath;
 
 	private MappingResolver mappingResolver;
 	private GameProvider provider;
@@ -134,7 +136,9 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 
 	private void setGameDir(Path gameDir) {
 		this.gameDir = gameDir;
-		this.configDir = gameDir.resolve(getConfiguration().getConfigDir());
+		this.configDir = mutableConfigsEnabled() ? gameDir.resolve(getConfiguration().getConfigDir())
+			: getJarPath().resolve(getConfiguration().getConfigDir());
+		Log.info(LogCategory.GENERAL, "Config directory: %s", configDir);
 	}
 
 	@Override
@@ -162,6 +166,14 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	}
 
 	public FabricLoaderConfig getConfiguration() {
+		if (configuration == null) {
+			try {
+				loadConfiguration();
+			} catch (InvalidConfigurationException exception) {
+				FabricGuiEntry.displayCriticalError(exception, true);
+			}
+		}
+
 		return configuration;
 	}
 
@@ -170,7 +182,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 	 */
 	@Override
 	public Path getConfigDir() {
-		if (!Files.exists(configDir)) {
+		if (mutableConfigsEnabled() && !Files.exists(configDir)) {
 			try {
 				Files.createDirectories(configDir);
 			} catch (IOException e) {
@@ -179,6 +191,10 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 		}
 
 		return configDir;
+	}
+
+	public boolean mutableConfigsEnabled() {
+		return System.getProperties().containsKey("mutableConfigs");
 	}
 
 	@Override
@@ -192,9 +208,8 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 		if (frozen) throw new IllegalStateException("Frozen - cannot load additional mods!");
 
 		try {
-			loadConfiguration();
 			setup();
-		} catch (ModResolutionException | InvalidConfigurationException exception) {
+		} catch (ModResolutionException exception) {
 			FabricGuiEntry.displayCriticalError(exception, true);
 		}
 	}
@@ -204,6 +219,8 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 			InputStream in = getClass().getClassLoader().getResourceAsStream(FabricLoaderConfig.CONFIG_FILE);
 			JsonReader reader = new JsonReader(new InputStreamReader(in));
 			configuration = new Gson().fromJson(reader, FabricLoaderConfig.class);
+
+			Log.info(LogCategory.GENERAL, "Read embedded loader configuration %s", getConfiguration());
 		} catch (JsonParseException exc) {
 			throw new InvalidConfigurationException(exc);
 		}
@@ -211,6 +228,7 @@ public final class FabricLoaderImpl extends net.fabricmc.loader.FabricLoader {
 
 	private void setup() throws ModResolutionException {
 		boolean remapRegularMods = isDevelopmentEnvironment();
+		Log.info(LogCategory.GENERAL, "Mutable configs %s", mutableConfigsEnabled() ? "ENABLED" : "DISABLED");
 
 		// discover mods
 

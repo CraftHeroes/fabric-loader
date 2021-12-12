@@ -29,4 +29,12 @@ public class FabricLoaderConfig {
 	public String getCacheDir() {
 		return this.cacheDir;
 	}
+
+	@Override
+	public String toString() {
+		return "{"
+			+ "configDir='" + getConfigDir() + "'"
+			+ ", cacheDir='" + getCacheDir() + "'"
+			+ "}";
+	}
 }
